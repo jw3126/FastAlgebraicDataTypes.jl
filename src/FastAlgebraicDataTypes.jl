@@ -14,6 +14,10 @@ function parse_matcharm(ex)
             @assert Ctor isa Symbol
             Dict{Symbol,Any}(:Ctor => Ctor, :body=>body, :args=>args)
         end
+        :(_ => $body) => Dict(
+            :Ctor => :_,
+            :body => body,
+        )
         _ => error("Expected match arm of the form Ctor(args...) => code, got: $ex")
     end
 end
@@ -44,16 +48,31 @@ function show_adt(io::IO, adt)
     show_ctor(io, unwrap_adt(adt))
 end
 
-function matchmacro(matchee, matcharms)
-    Base.remove_linenums!(matcharms)
+function matchmacro(matchee, ex_matcharms)
+    Base.remove_linenums!(ex_matcharms)
     m = gensym("m")
     ret = quote end
     push!(ret.args, :($m=$(unwrap_adt)($matchee)))
     msg = """
     Failed to match $(matchee)
     """
-    fallback = Expr(:call, match_error, msg)
-    matcharms = parse_match(matcharms)
+    fallbacks = []
+    matcharms = []
+    for arm in parse_match(ex_matcharms)
+        if arm[:Ctor] == :_
+            push!(fallbacks, arm)
+        else
+            push!(matcharms, arm)
+        end
+    end
+    if isempty(fallbacks)
+        fallback = Expr(:call, match_error, msg)
+    elseif length(fallbacks) == 1
+        fallback = only(fallbacks)[:body]
+    else
+        error("Expected at most one fallback matcharm, got $(fallbacks)")
+    end
+
     cond_code_pairs = map(matcharms) do arm
         Ctor = arm[:Ctor]
         cond = :($m isa $Ctor)
@@ -94,7 +113,7 @@ constructedtype(::Type{<:Ctor{name, T}}) where {name, T}= T
 function show_ctor(io::IO, ctor::Ctor)
     print(io, string(get_name(ctor)))
     show(io,Tuple(ctor))
-    print(io, "::", constructedtype(typeof(ctor)))
+    #print(io, "::", constructedtype(typeof(ctor)))
 end
 @specialize
 ################################################################################
