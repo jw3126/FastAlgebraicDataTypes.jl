@@ -1,0 +1,13 @@
+name = "FastAlgebraicDataTypes"
+uuid = "5da02217-5a71-47c7-935a-d7d7521a2efd"
+authors = ["Jan Weidner <jw3126@gmail.com> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
